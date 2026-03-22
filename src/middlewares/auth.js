@@ -1,18 +1,17 @@
+import { ApiError } from "../utils/ApiError.js";
 import { verifyToken } from "../utils/jwt.js";
 
 export const authMiddleware = (req, res, next) => {
     const authorizationHeader = req.headers.authorization;
 
     if (!authorizationHeader) {
-        return res.status(403).json({ message: "Authorization header missing" });
+        throw new ApiError(403, "Authorization header missing");
     }
-
-    console.log("Header: ", authorizationHeader)
 
     const parts = authorizationHeader.split(' ');
 
     if (parts.length != 2 || parts[0] !== 'Bearer') {
-        return res.status(403).json({ message: "Invalid authorization header format" });
+        throw new ApiError(403, "Invalid authorization header format");
     }
 
     const token = parts[1];
@@ -22,6 +21,6 @@ export const authMiddleware = (req, res, next) => {
         req.user = payload;
         next();
     } catch (error) {
-        res.json(403).json({ message: "Token expired or invalid token" })
+        throw new ApiError(403, "Token expired or invalid token");
     }
 }

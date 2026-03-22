@@ -1,24 +1,22 @@
 import bcrypt from 'bcrypt';
 import { signToken } from "../utils/jwt.js";
 import User from "../models/User.js";
+import { ApiError } from '../utils/ApiError.js';
+import { successResponse } from '../utils/successResponse.js';
 
 export const loginController = async (req, res) => {
     const { username, password } = req.body;
 
-    if (!username || !password) {
-        return res.status(400).json({ "message": "Missing required parameters" })
-    }
-
-    const user = await User.findOne({ username: username?.toLowerCase().trim() });
+    const user = await User.findOne({ username });
 
     if (!user) {
-        return res.status(400).json({ "message": "Invalid credentials" })
+        throw new ApiError(400, "Invalid credentials");
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
-        return res.status(400).json({ "message": "Invalid credentials" })
+        throw new ApiError(400, "Invalid credentials");
     }
 
     const token = signToken({
@@ -26,5 +24,5 @@ export const loginController = async (req, res) => {
         role: user.role
     });
 
-    return res.status(200).json({ message: "Login successful!", token })
+    return successResponse(res, 200, "Login successful!", { token });
 }

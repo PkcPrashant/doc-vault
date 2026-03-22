@@ -3,13 +3,15 @@ import { generateChecksum } from "../utils/checksum.js";
 import fs from "node:fs/promises";
 import File from "../models/File.js";
 import Document from "../models/Document.js";
+import { ApiError } from "../utils/ApiError.js";
+import { successResponse } from "../utils/successResponse.js";
 
 export const documentController = async (req, res) => {
     const { title } = req.body;
     const file = req.file;
 
     if (!file) {
-        return res.status(400).json({ "message": "File missing" })
+        throw new ApiError(400, "File missing");
     }
 
     const checksum = await generateChecksum(file.path);
@@ -41,8 +43,31 @@ export const documentController = async (req, res) => {
         fileId: fileDoc._id
     })
 
-    return res.status(201).json({
-        message: 'Document uploaded successfully',
-        document
-    })
+    return successResponse(res, 201, "Document uploaded successfully", document);
+}
+
+export const getDocumentsController = async (req, res) => {
+    const { page, size } = req.body;
+
+    const skip = (page - 1) * size;
+    const filter = { userId: req.user.userId };
+    const [documents, total] = await Promise.all([
+        Document.find(filter)
+            .select('title createdAt userId fileId -_id')
+            .sort({ createdAt: -1 })
+            .skip(skip).limit(size)
+            .populate('userId', 'username -_id')
+            .populate('fileId', 'name mimeType size -_id')
+            .lean(),
+        Document.countDocuments(filter)
+    ]);
+
+    const meta = {
+        page,
+        size,
+        total,
+        totalPages: Math.ceil(total / size)
+    }
+
+    return successResponse(res, 200, "Success", documents, { meta });
 }
