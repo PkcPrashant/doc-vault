@@ -6,6 +6,7 @@ import { documentController, getDocumentsController } from "../controllers/docum
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { documentValidator, getDocumentsSchema } from "../validations/document.validation.js";
 import { validatorMiddleware } from "../middlewares/validator.js";
+import { idempotencyMiddleware } from "../middlewares/idempotency.js";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.post("/",
 
 router.get("/getAllDocuments", 
     authMiddleware, 
+    idempotencyMiddleware,
     userLimiter,    
     validatorMiddleware(getDocumentsSchema),
     asyncHandler(getDocumentsController)

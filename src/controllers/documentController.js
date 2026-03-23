@@ -5,6 +5,8 @@ import File from "../models/File.js";
 import Document from "../models/Document.js";
 import { ApiError } from "../utils/ApiError.js";
 import { successResponse } from "../utils/successResponse.js";
+import { getFingerprint } from "../utils/idempotency.js";
+import redis from "../config/redis.js";
 
 export const documentController = async (req, res) => {
     const { title } = req.body;
@@ -15,6 +17,32 @@ export const documentController = async (req, res) => {
     }
 
     const checksum = await generateChecksum(file.path);
+
+    const fingerprint = getFingerprint(req.user?.userId, title, checksum);
+
+    const { redisKey, existingRecord } = req.idempotency;
+
+    if (existingRecord) {
+        await fs.unlink(file.path);
+        if(existingRecord.fingerprint !== fingerprint) {
+            throw new ApiError(409, "Idempotency key is not valid for this payload");
+        }
+        if(existingRecord.status === 'IN_PROGRESS') {
+            throw new ApiError(400, "Duplicate request is in progress. Kindly wait!")
+        }
+        if(existingRecord.status === 'COMPLETED') {
+            return successResponse(res, 200, null, existingRecord.data);
+        }
+    }
+
+    if (redisKey) {
+        const inProgressPayload = JSON.stringify({
+            status: 'IN_PROGRESS',
+            fingerprint
+        })
+        await redis.set(redisKey, inProgressPayload, 'EX', 600, 'NX');
+    }
+
     const existingFile = await File.findOne({ checksum })
 
     let fileDoc;
@@ -42,6 +70,15 @@ export const documentController = async (req, res) => {
         userId: req?.user?.userId,
         fileId: fileDoc._id
     })
+
+    if (redisKey) {
+        const completedPayload = JSON.stringify({
+            status: 'COMPLETED',
+            fingerprint,
+            data: document
+        })
+        await redis.set(redisKey, completedPayload, 'EX', 600, 'NX');
+    }
 
     return successResponse(res, 201, "Document uploaded successfully", document);
 }
