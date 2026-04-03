@@ -17,7 +17,7 @@ export const uploadMiddleware = multer({
         const allowedTypes = ["image/jpeg", "application/pdf"];
         const mimetype = file.mimetype;
         if(!allowedTypes.includes(mimetype)) {
-            cb(new ApiError(400, "Filetype not supported"), false);
+            return cb(new ApiError(400, "Filetype not supported"), false);
         }
         cb(null, true);
     }

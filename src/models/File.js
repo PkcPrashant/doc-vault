@@ -31,7 +31,7 @@ const fileSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        index: true
+        unique: true
     }
 }, {
     timestamps: true

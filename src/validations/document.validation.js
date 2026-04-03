@@ -2,7 +2,7 @@ import {z} from 'zod'
 
 export const documentValidator = z.object({
     body: z.object({
-        title: z.string().trim().min('3', 'Title must be of min length 3'),
+        title: z.string().trim().min(3, 'Title must be of min length 3'),
     })
 })
 

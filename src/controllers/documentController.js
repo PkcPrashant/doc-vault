@@ -24,13 +24,13 @@ export const documentController = async (req, res) => {
 
     if (existingRecord) {
         await fs.unlink(file.path);
-        if(existingRecord.fingerprint !== fingerprint) {
+        if (existingRecord.fingerprint !== fingerprint) {
             throw new ApiError(409, "Idempotency key is not valid for this payload");
         }
-        if(existingRecord.status === 'IN_PROGRESS') {
+        if (existingRecord.status === 'IN_PROGRESS') {
             throw new ApiError(400, "Duplicate request is in progress. Kindly wait!")
         }
-        if(existingRecord.status === 'COMPLETED') {
+        if (existingRecord.status === 'COMPLETED') {
             return successResponse(res, 200, null, existingRecord.data);
         }
     }
@@ -40,7 +40,29 @@ export const documentController = async (req, res) => {
             status: 'IN_PROGRESS',
             fingerprint
         })
-        await redis.set(redisKey, inProgressPayload, 'EX', 600, 'NX');
+        const wasSet = await redis.set(redisKey, inProgressPayload, 'EX', 600, 'NX');
+
+        if (wasSet === null) {
+            const latestRecordRaw = await redis.get(redisKey);
+
+            if (latestRecordRaw) {
+                const latestRecord = JSON.parse(latestRecordRaw);
+
+                await fs.unlink(file.path).catch(() => { });
+
+                if (latestRecord.fingerprint !== fingerprint) {
+                    throw new ApiError(409, "Idempotency key is not valid for this payload");
+                }
+
+                if (latestRecord.status === "IN_PROGRESS") {
+                    throw new ApiError(409, "Duplicate request is already in progress");
+                }
+
+                if (latestRecord.status === "COMPLETED") {
+                    return successResponse(res, 200, "Success", latestRecord.data);
+                }
+            }
+        }
     }
 
     const existingFile = await File.findOne({ checksum })
@@ -77,8 +99,15 @@ export const documentController = async (req, res) => {
             fingerprint,
             data: document
         })
-        await redis.set(redisKey, completedPayload, 'EX', 600, 'NX');
+        await redis.set(redisKey, completedPayload, 'EX', 600);
     }
+
+    req.log?.info({
+        message: "Document uploaded successfully",
+        userId: req.user?.userId,
+        documentId: document._id.toString(),
+        checksum
+    });
 
     return successResponse(res, 201, "Document uploaded successfully", document);
 }

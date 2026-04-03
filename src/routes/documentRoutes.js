@@ -12,6 +12,7 @@ const router = express.Router();
 
 router.post("/", 
     authMiddleware, 
+    idempotencyMiddleware,
     userLimiter,    
     uploadMiddleware, 
     validatorMiddleware(documentValidator),
@@ -20,7 +21,6 @@ router.post("/",
 
 router.get("/getAllDocuments", 
     authMiddleware, 
-    idempotencyMiddleware,
     userLimiter,    
     validatorMiddleware(getDocumentsSchema),
     asyncHandler(getDocumentsController)

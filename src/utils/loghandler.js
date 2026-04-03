@@ -4,7 +4,7 @@ import fs from 'fs'
 
 const logsDir = path.resolve("logs");
 
-if (!logsDir) {
+if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true })
 }
 
