@@ -7,6 +7,6 @@ echo %date% %time% >> activity.log
 
 git add .
 git commit -m "Daily auto commit"
-git push origin main
+git push origin master
 
 pause
